@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans:beans xmlns="http://www.springframework.org/schema/security"
+	xmlns:beans="http://www.springframework.org/schema/beans" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans
+        http://www.springframework.org/schema/beans/spring-beans-3.0.xsd
+        http://www.springframework.org/schema/security
+        http://www.springframework.org/schema/security/spring-security.xsd">
+
+	<http>
+		<!-- Everyone has the access -->
+		<intercept-url pattern="/" access="permitAll"/>
+		
+		<!-- Everyone has the access -->
+        <intercept-url pattern="/login" access="permitAll"/>
+        
+        <!-- <intercept-url pattern="/customlogout" access="permitAll"/>  -->
+        <!-- Both Customer and Admin can access -->          
+        <intercept-url pattern="/customer" access="hasAnyRole('ROLE_CUSTOMER', 'ROLE_ADMIN')"/>
+        
+		<!-- Only Customer user can access -->                     
+        <intercept-url pattern="/admin" access="hasRole('ROLE_ADMIN')"/>
+      
+        <custom-filter ref="MyCustomFilter" position="PRE_AUTH_FILTER" />
+         
+        <!-- Login Page -->
+		<form-login login-page='/login' 			
+			authentication-success-handler-ref="customAuthenticationSuccessHandler" 
+			authentication-failure-handler-ref="customAuthenticationFailureHandler" 						
+			/>
+		
+		<!-- Logout Page -->
+		<logout  delete-cookies="JSESSIONID" success-handler-ref="customLogoutSuccessHandler" />
+							
+		<remember-me remember-me-cookie="persistenceAuth" key="uniqueAndSecret"
+			token-validity-seconds="86400" />
+	</http>
+ 
+	<beans:bean class="it.blog.spring4security.filter.MyCustomFilter" name="MyCustomFilter"/>
+
+	<beans:bean class="it.blog.spring4security.handler.CustomLogoutSuccessHandler" name="customLogoutSuccessHandler"/>
+	
+	<beans:bean class="it.blog.spring4security.handler.CustomAuthenticationSuccessHandler" name="customAuthenticationSuccessHandler"/>
+	
+	<beans:bean class="org.springframework.security.web.authentication.SimpleUrlAuthenticationFailureHandler" name="customAuthenticationFailureHandler">
+		<beans:property name="defaultFailureUrl" value="/" />
+	</beans:bean>
+
+	<beans:bean id="dataSource"
+		class="org.springframework.jdbc.datasource.DriverManagerDataSource">
+		<beans:property name="driverClassName" value="com.mysql.jdbc.Driver" />
+		<beans:property name="url"
+			value="jdbc:mysql://127.0.0.1:3306/springsecurity" />
+		<beans:property name="username" value="root" />
+		<beans:property name="password" value="" />
+	</beans:bean>
+
+	<beans:bean name="JdbcDaoImpl" class="it.blog.spring4security.dao.MyJdbcDaoSupport">
+		<beans:property name="dataSource" ref="dataSource" />
+		<beans:property name="usersByUsernameQuery" value="select username, password, isActive as enabled from users where username=?" />
+		<beans:property name="authoritiesByUsernameQuery" value="select u.username, r.role from users u, roles r, user_roles ur where u.id=ur.user_id and r.id=ur.role_id and u.username=?" />
+		<beans:property name="userPersonalDataQuery" value="select p.firstname, p.surname from users_personaldata p, users u where p.id=u.id and u.username=?;" />
+	</beans:bean>
+	
+	<beans:bean id="bcrypt"
+		class="org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder" />
+	<authentication-manager alias="authenticationManager">
+	
+		<authentication-provider user-service-ref="JdbcDaoImpl" >
+			<password-encoder ref="bcrypt" />
+			
+		</authentication-provider>
+	</authentication-manager>
+</beans:beans>
